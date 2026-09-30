@@ -6,6 +6,14 @@
 # ---------------------------------------------------------------------------
 # Action group: single fan-out point for every alert in the stack.
 # ---------------------------------------------------------------------------
+
+locals {
+  # Whether a webhook is configured is not itself a secret, only the URL is.
+  # nonsensitive() lets the dynamic block key off it without tripping
+  # Terraform's sensitive-value-in-for_each guard.
+  webhook_configured = nonsensitive(var.alert_webhook_url != "")
+}
+
 resource "azurerm_monitor_action_group" "oncall" {
   name                = "ag-${var.project_name}-oncall"
   resource_group_name = azurerm_resource_group.main.name
@@ -17,7 +25,7 @@ resource "azurerm_monitor_action_group" "oncall" {
   # Slack via an incoming webhook plus a small transform). The URL is a
   # sensitive variable so it never lands in the repo.
   dynamic "webhook_receiver" {
-    for_each = var.alert_webhook_url != "" ? [1] : []
+    for_each = local.webhook_configured ? ["chatops"] : []
     content {
       name                    = "chatops"
       service_uri             = var.alert_webhook_url
@@ -26,7 +34,7 @@ resource "azurerm_monitor_action_group" "oncall" {
   }
 
   dynamic "email_receiver" {
-    for_each = var.alert_email != "" ? [1] : []
+    for_each = var.alert_email != "" ? ["oncall-email"] : []
     content {
       name                    = "oncall-email"
       email_address           = var.alert_email
