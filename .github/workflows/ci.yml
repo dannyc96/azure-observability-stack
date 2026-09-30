@@ -1,0 +1,76 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    name: terraform (fmt, validate, tflint, checkov)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: terraform fmt check
+        run: terraform fmt -check -recursive -diff terraform
+
+      - name: terraform init (no backend)
+        run: terraform -chdir=terraform init -backend=false -input=false
+
+      - name: terraform validate
+        run: terraform -chdir=terraform validate
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.53.0
+
+      - name: tflint
+        run: |
+          tflint --init --config="$(pwd)/.tflint.hcl"
+          tflint --chdir=terraform --config="$(pwd)/.tflint.hcl" --format compact
+        env:
+          # Avoids rate limiting when tflint pulls the azurerm ruleset.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: terraform
+          framework: terraform
+          quiet: true
+          # Demo-stack exceptions, each one deliberate:
+          # CKV_AZURE_88: ingress is public on purpose, this is a demo API
+          # CKV2_AZURE_31: no VNet integration for the Consumption environment,
+          #   keeping the footprint (and the bill) small
+          skip_check: CKV_AZURE_88,CKV2_AZURE_31
+
+  python:
+    name: python (ruff, compile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install ruff
+        run: pip install ruff==0.9.6
+
+      - name: ruff check
+        run: ruff check app/
+
+      - name: ruff format check
+        run: ruff format --check app/
+
+      - name: compile check
+        run: |
+          for f in app/*.py; do python -m py_compile "$f"; done

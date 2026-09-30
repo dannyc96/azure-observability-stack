@@ -1,0 +1,24 @@
+# Copy to terraform.tfvars (gitignored) and adjust. Everything has a sane
+# default; the webhook URL is the only thing you will usually want to set.
+
+project_name = "obsstack"
+location     = "eastus2"
+environment  = "demo"
+
+# Image built by `make build-image` and pushed to a reachable registry.
+container_image = "ghcr.io/dannyc96/orders-api:latest"
+
+# Teams: create an Incoming Webhook via Workflows on the target channel.
+# Slack: create an Incoming Webhook app on the target channel.
+# Keep this out of git; prefer TF_VAR_alert_webhook_url in CI.
+# alert_webhook_url = "https://hooks.slack.com/services/T000/B000/XXXX"
+
+# alert_email = "oncall@example.com"
+
+# Alert tuning. See variables.tf for the reasoning behind the defaults.
+failure_rate_threshold_percent = 5
+p95_latency_threshold_ms       = 1000
+
+tags = {
+  owner = "danny.chambers"
+}

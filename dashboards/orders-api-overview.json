@@ -1,0 +1,601 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_AZUREMONITOR",
+      "label": "Azure Monitor",
+      "description": "Preprovisioned Azure Monitor data source in Azure Managed Grafana",
+      "type": "datasource",
+      "pluginId": "grafana-azure-monitor-datasource",
+      "pluginName": "Azure Monitor"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "grafana-azure-monitor-datasource",
+      "name": "Azure Monitor",
+      "version": "1.0.0"
+    },
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "11.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    }
+  ],
+  "title": "Orders API - Service Overview",
+  "description": "Golden signals for the orders API sample workload: traffic, errors, latency, availability, plus the orders_created business metric. Committed as JSON in dannyc96/azure-observability-stack.",
+  "tags": ["orders-api", "observability-as-code", "golden-signals"],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Data source",
+        "type": "datasource",
+        "query": "grafana-azure-monitor-datasource",
+        "current": {},
+        "hide": 0,
+        "refresh": 1
+      },
+      {
+        "name": "subscription",
+        "label": "Subscription",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-azure-monitor-datasource",
+          "uid": "${datasource}"
+        },
+        "query": {
+          "queryType": "Azure Subscriptions",
+          "refId": "A"
+        },
+        "current": {},
+        "hide": 0,
+        "refresh": 1,
+        "sort": 1
+      },
+      {
+        "name": "resource_group",
+        "label": "Resource group",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-azure-monitor-datasource",
+          "uid": "${datasource}"
+        },
+        "query": {
+          "queryType": "Azure Resource Groups",
+          "subscription": "$subscription",
+          "refId": "A"
+        },
+        "current": {},
+        "hide": 0,
+        "refresh": 1,
+        "sort": 1
+      },
+      {
+        "name": "resource",
+        "label": "App Insights component",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-azure-monitor-datasource",
+          "uid": "${datasource}"
+        },
+        "query": {
+          "queryType": "Azure Resource Names",
+          "subscription": "$subscription",
+          "resourceGroup": "$resource_group",
+          "namespace": "microsoft.insights/components",
+          "refId": "A"
+        },
+        "current": {},
+        "hide": 0,
+        "refresh": 1,
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Availability (web test)",
+      "description": "Average availability reported by the multi-region URL ping against /healthz. Anything under 100% over the selected window deserves a look at the availability blade.",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 99 },
+              { "color": "green", "value": 99.9 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["mean"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "orientation": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Monitor",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "${datasource}"
+          },
+          "azureMonitor": {
+            "aggregation": "Average",
+            "metricName": "availabilityResults/availabilityPercentage",
+            "metricNamespace": "microsoft.insights/components",
+            "timeGrain": "auto",
+            "allowedTimeGrainsMs": [],
+            "dimensionFilters": [],
+            "resources": [
+              {
+                "metricNamespace": "microsoft.insights/components",
+                "subscription": "$subscription",
+                "resourceGroup": "$resource_group",
+                "resourceName": "$resource"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Error rate (current window)",
+      "description": "Percentage of server requests with success == false. The alert rule fires above 5% sustained for 5 minutes.",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "orientation": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "${datasource}"
+          },
+          "azureLogAnalytics": {
+            "resultFormat": "time_series",
+            "resources": [
+              "/subscriptions/$subscription/resourceGroups/$resource_group/providers/microsoft.insights/components/$resource"
+            ],
+            "query": "requests\n| where $__timeFilter(timestamp)\n| summarize total = count(), failed = countif(success == false) by bin(timestamp, 5m)\n| where total > 0\n| extend error_rate = todouble(failed) * 100.0 / todouble(total)\n| project timestamp, error_rate\n| order by timestamp asc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Requests (selected range)",
+      "description": "Total server request count over the dashboard time range.",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["sum"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "orientation": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Monitor",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "${datasource}"
+          },
+          "azureMonitor": {
+            "aggregation": "Count",
+            "metricName": "requests/count",
+            "metricNamespace": "microsoft.insights/components",
+            "timeGrain": "auto",
+            "allowedTimeGrainsMs": [],
+            "dimensionFilters": [],
+            "resources": [
+              {
+                "metricNamespace": "microsoft.insights/components",
+                "subscription": "$subscription",
+                "resourceGroup": "$resource_group",
+                "resourceName": "$resource"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Orders created (selected range)",
+      "description": "Sum of the orders_created custom metric emitted by POST /orders. Business telemetry next to platform telemetry, on purpose.",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "purple", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["sum"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "orientation": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "${datasource}"
+          },
+          "azureLogAnalytics": {
+            "resultFormat": "time_series",
+            "resources": [
+              "/subscriptions/$subscription/resourceGroups/$resource_group/providers/microsoft.insights/components/$resource"
+            ],
+            "query": "customMetrics\n| where name == 'orders_created'\n| where $__timeFilter(timestamp)\n| summarize orders = sum(valueSum) by bin(timestamp, 5m)\n| project timestamp, orders\n| order by timestamp asc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Request rate",
+      "description": "Server requests per minute from the standard requests/count metric.",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqpm",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Monitor",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "${datasource}"
+          },
+          "azureMonitor": {
+            "aggregation": "Count",
+            "metricName": "requests/count",
+            "metricNamespace": "microsoft.insights/components",
+            "timeGrain": "PT1M",
+            "allowedTimeGrainsMs": [],
+            "dimensionFilters": [],
+            "alias": "requests/min",
+            "resources": [
+              {
+                "metricNamespace": "microsoft.insights/components",
+                "subscription": "$subscription",
+                "resourceGroup": "$resource_group",
+                "resourceName": "$resource"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Error rate",
+      "description": "Failure percentage per 5-minute bin, split into 5xx-style server failures and 4xx client errors so a bad deploy is distinguishable from bad callers.",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "server_failure_rate" },
+            "properties": [
+              {
+                "id": "color",
+                "value": { "mode": "fixed", "fixedColor": "red" }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "client_error_rate" },
+            "properties": [
+              {
+                "id": "color",
+                "value": { "mode": "fixed", "fixedColor": "yellow" }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "${datasource}"
+          },
+          "azureLogAnalytics": {
+            "resultFormat": "time_series",
+            "resources": [
+              "/subscriptions/$subscription/resourceGroups/$resource_group/providers/microsoft.insights/components/$resource"
+            ],
+            "query": "requests\n| where $__timeFilter(timestamp)\n| summarize total = count(),\n    server_failures = countif(toint(resultCode) >= 500),\n    client_errors = countif(toint(resultCode) >= 400 and toint(resultCode) < 500)\n    by bin(timestamp, 5m)\n| where total > 0\n| extend server_failure_rate = todouble(server_failures) * 100.0 / todouble(total),\n    client_error_rate = todouble(client_errors) * 100.0 / todouble(total)\n| project timestamp, server_failure_rate, client_error_rate\n| order by timestamp asc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Latency percentiles (server duration)",
+      "description": "p50 / p95 / p99 server response time. The p95 alert threshold (1000 ms) is drawn as a red line; if p95 lives near it in steady state, fix the service or renegotiate the SLO, do not mute the alert.",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 14 },
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "${datasource}"
+          },
+          "azureLogAnalytics": {
+            "resultFormat": "time_series",
+            "resources": [
+              "/subscriptions/$subscription/resourceGroups/$resource_group/providers/microsoft.insights/components/$resource"
+            ],
+            "query": "requests\n| where $__timeFilter(timestamp)\n| summarize p50 = percentile(duration, 50),\n    p95 = percentile(duration, 95),\n    p99 = percentile(duration, 99)\n    by bin(timestamp, 5m)\n| project timestamp, p50, p95, p99\n| order by timestamp asc"
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Orders created (custom metric, by SKU)",
+      "description": "The orders_created counter from the app's OpenTelemetry meter, split by the sku attribute. This is the panel that proves custom business metrics flow end to end.",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 14 },
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "showPoints": "never",
+            "stacking": { "mode": "normal", "group": "A" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "purple", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "${datasource}"
+          },
+          "azureLogAnalytics": {
+            "resultFormat": "time_series",
+            "resources": [
+              "/subscriptions/$subscription/resourceGroups/$resource_group/providers/microsoft.insights/components/$resource"
+            ],
+            "query": "customMetrics\n| where name == 'orders_created'\n| where $__timeFilter(timestamp)\n| extend sku = tostring(customDimensions['sku'])\n| summarize orders = sum(valueSum) by bin(timestamp, 5m), sku\n| project timestamp, sku, orders\n| order by timestamp asc"
+          }
+        }
+      ]
+    }
+  ]
+}
